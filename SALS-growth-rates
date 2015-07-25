@@ -183,7 +183,7 @@ renest_fail <- (renest_prob_int + renest_prob_lat*new_lat_matrix + renest_prob_d
 renest_fail <- 1 - exp(renest_fail)/(1+exp(renest_fail))
 
 #nest failure probabilities, which were previously drawn from MCMC
-nest_fail_logit <- nest_fail_int + nest_fail_date*julian_matrix + nest_sitevector[individs_bysite]
+nest_fail_logit <- nest_fail_int + nest_fail_date[individs_bysite]*julian_matrix + nest_sitevector[individs_bysite]
 fail_prob <- exp(nest_fail_logit)/(1+exp(nest_fail_logit))
 daily_surv <- (1 - fail_prob)
 
