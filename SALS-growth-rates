@@ -54,10 +54,11 @@ nest_fail = read.csv(file = "nest_failure_MCMC_siteeffects.csv", header=TRUE, se
 #randomly select a row number, which will be used to pull parameter values from the same iteration of the MCMC chain
 nest_fail_row <- sample(1000, 1)
 nest_fail_int <- nest_fail[nest_fail_row,1]
-nest_fail_date <- nest_fail[nest_fail_row,2]
 nest_sitevector = mat.or.vec(21, 1)
+nest_fail_date = mat.or.vec(21, 1)
 for(i in 1:21){
-nest_sitevector[i] <- nest_fail[nest_fail_row, 3+i]
+nest_sitevector[i] <- nest_fail[nest_fail_row, 2+i]
+nest_fail_date[i] <- nest_fail[nest_fail_row, 23+i]
 }
 
 #choose values from posterior distributions of parameters: biotic parameters
