@@ -1,20 +1,13 @@
 
-###CHECK THE FOLLOWING CONDITIONS BEFORE RUNNNG###
-
 #number of iterations for each loop: E is demo-enviro uncertainty; Y is year; Q is parameter estimation uncertainty
 E <- 1
 Y <- 4
 Q <- 1000
 
-#make sure the correct working directories are selected
-###END CHECK THE FOLLOWING CONDITIONS BEFORE RUNNNG###
-
-#set work directory 
-setwd("/Users/christopher/Dropbox/PVA/")
+#set work directory for parameter table
 
 #load files
 VitalRates = read.csv(file = "PVA_parameters_new.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-Abiotic = read.csv(file = "PVA_parameters_abiotic.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
 SiteList = read.csv(file = "site_list.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
 
 ###BEGIN PARAMETER UNCERTAINTY###
@@ -35,7 +28,7 @@ PVA <- foreach(q = 1:Q) %dopar% {
 #parameter uncertainty loop
 #for(q in 1:Q){
 #set working directory for MCMC chains
-setwd("/Users/christopher/Dropbox/PVA/MCMC/")
+
 #pull parameter values from posterior predictions
 #renesting probability: varies by date and latitude, but no individual variation beyond binomial sampling variance
 renest_prob_MCMC = read.csv(file = "renest_prob_MCMC.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
@@ -62,7 +55,7 @@ nest_fail_date[i] <- nest_fail[nest_fail_row, 23+i]
 }
 
 #choose values from posterior distributions of parameters: biotic parameters
-#first column is the intercept, second is lat trend, third is within-season date trend, fourth is individual variation, fifth is season variation
+#first column is the intercept, second is lat trend, third is within-season date trend, fourth is individual variation, fifth is seasonal variation
 B_vital = mat.or.vec(8, 5)
 for(i in 1:8){
 B_vital[i, 1]  <- rnorm(1, VitalRates[i, 4], VitalRates[i, 5])
@@ -232,15 +225,6 @@ fledges = 0
 				if(t >= (nest_building[z] + renest_days_success[z])){
 				#did the nest survive day i?
 				alive <- rbinom(1, 1, daily_surv[z, i])
-					#if(f <= laying[z]){
-					#phase[z, i] <- 3
-					#}
-					#if(f > laying[z]&f <= incubation[z]){
-					#phase[z, i] <- 4
-					#}
-					#if(f > incubation[z]){
-					#phase[z, i] <- 5
-					#}
 				#if the nest survived day i, add 1 to f
 					if(alive == 1){
 					f = f + 1
@@ -267,13 +251,6 @@ fledges = 0
 				}
 				if(t < (nest_building[z] + renest_days_success[z])){
 				t = t + 1
-					#the dark orange code is just for creating phase plots
-					#if(t <= renest_days_success[z]){
-					#phase[z, i] <- 1
-					#}
-					#if(t > renest_days_success[z]){
-					#phase[z, i] <- 2
-					#}
 				}
 			}
 			#if there has not been a successful nest, this loop will specify how long the invulnerable period is
@@ -282,15 +259,6 @@ fledges = 0
 				if(t >= (nest_building[z] + renest_days_fail[z])){
 				#did the nest survive day i?
 				alive <- rbinom(1, 1, daily_surv[z, i])
-					#if(f <= laying[z]){
-					#phase[z, i] <- 3
-					#}
-					#if(f > laying[z]&f <= incubation[z]){
-					#phase[z, i] <- 4
-					#}
-					#if(f > incubation[z]){
-					#phase[z, i] <- 5
-					#}
 					#if the nest survived day i, add 1 to f
 					if(alive == 1){
 					f = f + 1
@@ -317,12 +285,6 @@ fledges = 0
 				}
 				if(t < (nest_building[z] + renest_days_fail[z])){
 				t = t + 1
-					#if(t <= renest_days_fail[z]){
-					#phase[z, i] <- 1
-					#}
-					#if(t > renest_days_fail[z]){
-					#phase[z, i] <- 2
-					#}
 				}
 			}
 		}
@@ -360,13 +322,6 @@ survivors_site_chicks <- c(survivors_site_chicks, rep(survivors_site_chicks_cond
 #remove the pre-allocated zero
 survivors_site_chicks <- survivors_site_chicks[-1]
 
-#no need to run this when emmigration equals immigration
-#emmigration_bysite <- c(0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9)
-#leave <- rbinom(length(survivors_site_chicks), 1, emmigration_bysite[survivors_site_chicks])
-#survivors_site_chicks <- survivors_site_chicks[leave==0]
-
-#immigration goes here
-
 #get individuals by site at time y to populate vector that will be used to export fecundity
 individs_bysite_old <- individs_bysite
 
@@ -376,7 +331,6 @@ individs_bysite <- c(survivors_site_adults, survivors_site_chicks)
 #get new latitude for each individual
 new_lat <- SiteList$Lat_site[individs_bysite]
 #add in annual variation in survival for the next year
-#survival_annual_var <- rnorm(1, 0, .311)
 survival_annual_var <- rnorm(1, 0, 0)
 #get new survival for each individual
 survival <- exp(survival_sitevector[individs_bysite] + survival_annual_var)/(1+exp(survival_sitevector[individs_bysite] + survival_annual_var))
