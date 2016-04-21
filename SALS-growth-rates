@@ -1,23 +1,27 @@
+
+###This code is for a brute-force population simulation that estimates site-level growth rates Saltmarsh Sparrows. The simulation uses parallel computing to run Q iterations for quantifying the range of parameter uncertainty. It is also possible to partition environmental and demographic stochasticity by specifying a number other than 1 for E. The loop for E runs within each iteration for Q, giving the enviro/demo uncertainty for a single vector of values of the simulation's parameters. 
+
+start_time <- proc.time()
+
 ###CHECK THE FOLLOWING CONDITIONS BEFORE RUNNNG###
-#number of iterations for each loop: E is demographic-environmental uncertainty (not necessary unless specifically partitioning the uncertainty); Y is the number of years; Q is the number of iterations for estimating parameter estimation uncertainty
+#number of iterations for each loop: E is demographic-environmental uncertainty (not necessary unless specifically partitioning the uncertainty); Y is the number of years; Q is the number of iterations for estimating uncertainty from parameter estimation
 E <- 1
 Y <- 4
 Q <- 1000
+#make sure the correct working directories are selected
 ###END CHECK THE FOLLOWING CONDITIONS BEFORE RUNNNG###
 
 #set work directory 
+#setwd("/Users/chrisfield/Dropbox/PVA/")
+setwd("/Users/christopher/Dropbox/PVA/")
 
-#load data files
-VitalRates = read.csv(file = "PVA_parameters.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-Abiotic = read.csv(file = "PVA_parameters_abiotic.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-SiteList = read.csv(file = "site_list.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+#load files
+VitalRates <- read.csv(file = "PVA_parameters.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+SiteList <- read.csv(file = "site_list.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+VitaRates[3, 5] <- 0
 
-###BEGIN LOOP FOR PARAMETER UNCERTAINTY###
 
-#create an empty length(site)-by-Y-by-E array to store results
-popsize_matrix = array(0, dim=c(21, Y, E))
-
-#load libraries, detect and register cores, and use the foreach command to do parallel computing for each iteration of the parameter uncertainty loop
+#load libraries, detect and register cores, use the foreach command to do parallel computing for each iteration for parameter uncertainty
 library('parallel')
 library('foreach')
 library('doParallel')
@@ -25,16 +29,17 @@ cl <- makeCluster(detectCores() - 1)
 registerDoParallel(cl, cores=detectCores() - 1)
 
 PVA <- foreach(q = 1:Q) %dopar% {
+#create an empty length(site)-by-Y-by-E array
+popsize_matrix <- array(0, dim=c(21, Y, E))
 
-#this loop is not necessary when using parallel computing
-#parameter uncertainty loop
-#for(q in 1:Q){
-#set working directory for MCMC chains for model parameters
+#set working directory for MCMC chains
+#setwd("/Users/chrisfield/Dropbox/PVA/MCMC/")
+setwd("/Users/christopher/Dropbox/PVA/MCMC/")
 
 #pull parameter values from posterior predictions
-#renesting probability: varies by date and latitude, but no individual variation beyond binomial sampling variance
-renest_prob_MCMC = read.csv(file = "renest_prob_MCMC.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-#randomly select a row number, which will be used to pull parameter values from the same iteration of the MCMC chain
+#load renesting probability: varies by date and latitude, but no individual variation beyond binomial sampling variance
+renest_prob_MCMC <- read.csv(file = "renest_prob_MCMC.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+#randomly select a row number, which will be used to draw a vector of parameter values from the same step of the MCMC chain
 renest_prob_row <- sample(1000, 1)
 renest_prob_int <- renest_prob_MCMC[renest_prob_row, 1]
 renest_prob_date <- renest_prob_MCMC[renest_prob_row, 3]
@@ -42,22 +47,23 @@ renest_prob_lat <- renest_prob_MCMC[renest_prob_row, 2]
 renest_prob_sd <- 0
 
 #difference between brood and clutch size
-brood = read.csv(file = "brood_MCMC.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-
-#load nest failure probabilities
-nest_fail = read.csv(file = "nest_failure_MCMC_siteeffects.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-#randomly select a row number, which will be used to pull parameter values from the same iteration of the MCMC chain
+brood <- read.csv(file = "brood_MCMC.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+#nest failure probabilities
+nest_fail <- read.csv(file = "nest_failure_MCMC_siteeffects.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+#randomly select a row number, which will be used to draw a vector of parameter values from the same step of the MCMC chain
 nest_fail_row <- sample(1000, 1)
 nest_fail_int <- nest_fail[nest_fail_row,1]
-nest_fail_date <- nest_fail[nest_fail_row,2]
-nest_sitevector = mat.or.vec(21, 1)
+nest_sitevector <- mat.or.vec(21, 1)
+nest_fail_date <- mat.or.vec(21, 1)
+#get site-level parameters for the intercept and date effect
 for(i in 1:21){
-nest_sitevector[i] <- nest_fail[nest_fail_row, 3+i]
+nest_sitevector[i] <- nest_fail[nest_fail_row, 2+i]
+nest_fail_date[i] <- nest_fail[nest_fail_row, 23+i]
 }
 
-#choose values from posterior distributions of biotic parameters (# days after success, # days after failure, reduction in survival for first year, sex ratio, nest building, # incubation days, # chick days, nest initiation date)
-#first column is the intercept; second is latitude trend; third is within-season date trend; fourth is individual variation; fifth is season variation
-B_vital = mat.or.vec(8, 5)
+#choose values from posteriors of biotic parameters from table (# days after success, # days after failure, reduction in survival for first year, sex ratio, nest building, # incubation days, # chick days, nest initiation date)
+#first column is the intercept, second is the latitudinal trend, third is within-season date trend, fourth is individual variation, fifth is seasonal variation
+B_vital <- mat.or.vec(8, 5)
 for(i in 1:8){
 B_vital[i, 1]  <- rnorm(1, VitalRates[i, 4], VitalRates[i, 5])
 B_vital[i, 2] <- rnorm(1, VitalRates[i, 6], VitalRates[i, 7])
@@ -66,47 +72,44 @@ B_vital[i, 4] <- rnorm(1, VitalRates[i, 2], VitalRates[i, 3])
 B_vital[i, 5] <- rnorm(1, VitalRates[i, 10], VitalRates[i, 11])
 }
 
-#choose values for clutch size probabilties for 3, 4, and 5 eggs; exp is used to ensure the appropriate link function when used below to make predictions
+#choose values for clutch size parameters; exp is used to ensure the appropriate link function when used below to make predictions
 clutch_size_3 <- exp(rnorm(1, 1.5976767, 0.1520553))
 clutch_size_4 <- exp(rnorm(1, 2.1171442, 0.1467794))
 clutch_size_5 <- exp(rnorm(1, 0.4307773, 0.1781254))
 
 #choose values for brood size at fledging
-#create a function to be used in the time loop below; necessary because the vector "laying" (# of eggs) is needed to calculate values
-#randomly select a row number, which will be used to pull parameter values from the same iteration of the MCMC chain
+#create a function to be used in the Y loop because "laying" is needed to calculate values for brood size
+#randomly select a row number, which will be used to draw a vector of parameter values from the same iteration of the MCMC chain
 brood_size_f_row <- sample(1000, 1)
-brood_size_f <-function(laying){exp(brood[brood_size_f_row, 1] + brood[brood_size_f_row, 2]*laying)}
+brood_size_f <- function(laying){exp(brood[brood_size_f_row, 1] + brood[brood_size_f_row, 2]*laying)}
 
-#load values for adult survival
-surv_bysite = read.csv(file = "surv_bysiteMCMC_justsites.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-#randomly select a row number, which will be used to pull parameter values from the same iteration of the MCMC chain
+#choose values for adult survival
+surv_bysite <- read.csv(file = "surv_bysiteMCMC_justsites.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
+#randomly select a row number, which will be used to draw a vector of parameter values from the same step of the MCMC chain
 surv_bysite_row <- sample(1000, 1)
-survival_sitevector = mat.or.vec(21, 1)
-for(i in 1:21){
-survival_sitevector[i] <- surv_bysite[surv_bysite_row, i]
-}
-###END LOOP FOR PARAMETER UNCERTAINTY###
+survival_sitevector <- as.numeric(surv_bysite[surv_bysite_row, ])
 
 #environmental and demographic stochasticity
 for(e in 1:E){
-#create a vector of site indices
+#vector of site indices
 sites <- 1:21
 #starting population sizes by site
 popsize_bysite <- rep(100, 21)
-#plot size
+#get a vector of plot size by site
 plotsize_bysite <- round(SiteList$Plot_size[1:21])
-#vector of starting population sizes by site for exporting; this vector will update annually, while "popsize_bysite" will remain as the starting population sizes
-popsize_bysite_export = mat.or.vec(21, 1)
-
-#the following two vectors are used to export the number of fledges and population size at time y to calculate and export fecundity
-chicks_bysite_export = mat.or.vec(21, 1)
-popsize_old_bysite_export = mat.or.vec(21, 1)
-
+#get a vector of starting population sizes by site for export; this vector will update annually, while popsize_bysite will remain as the starting population sizes
+popsize_bysite_export <- mat.or.vec(21, 1)
+#get a vector for the number of females produced for exporting fecundity
+chicks_bysite_export <- mat.or.vec(21, 1)
+#get a vector of the number of females at the beginning of the breeding season (to provide a denominator for fecundity)
+popsize_old_bysite_export <- mat.or.vec(21, 1)
 #combine site indices and starting population sizes to get a vector of individuals indexed by site
 individs_bysite <- rep(sites, popsize_bysite)
 #get latitude for each individual
 new_lat <- SiteList$Lat_site[individs_bysite]
-#possible to allow annual variation in survival
+
+#add in annual variation in survival for the next year
+#survival_annual_var <- rnorm(1, 0, .311)
 survival_annual_var <- rnorm(1, 0, 0)
 survival_sitevector <- survival_sitevector + survival_annual_var
 #get backtransformed survival for each individual
@@ -117,22 +120,21 @@ end_date <- round(SiteList$Last_egg_date[individs_bysite])
 #calculate total population size over all sites
 popsize <- length(individs_bysite)
 
-#year y=1 is 2014; parameters are using a baseline of 2013
 #year loop
 for(y in 1:Y){
 #get days from first egg date until initiation
-initiation <- rpois(length(new_lat), 3)
+initiation <- rgeom(length(new_lat), max(B_vital[8, 1], 0.01))
 
 #these parameters potentially have both systematic variation by latitude and individual-level variation 
 #FY survival is a proportion of adult annual survival
 FY_surv_reduction <- B_vital[3, 1]
 #if by FY survival reduction is less than 0, replace with a 0 (only a very small chance of this ever happening)
 FY_surv_reduction[FY_surv_reduction<0] <- 0
-#get sex ratio
+#get the sex ratio
 sex_ratio <- B_vital[4, 1]
-#get # of nest building days
+#get length of nest building (days)
 nest_building <- colSums(rmultinom(length(new_lat), 1, c(.25, .25, .5))*c(2, 3, 4))
-#get # of incubation days
+#get length of incubation (days)
 incubation <- round(rnorm(length(new_lat), B_vital[6, 1] + B_vital[6, 2]*new_lat, B_vital[6, 4]))
 
 #clutch size is used to estimate egg laying days; this parameter only has sampling variation by individual (each female has a constant clutch size within-season, but it can change between years)
@@ -148,7 +150,7 @@ laying <- colSums(rmultinom(length(new_lat), size=1, clutch_size_pmatrix[])*c(2,
 #use the functions created above to calculate brood size
 lost_chicks <- brood_size_f(laying)
 
-#calculate nestling period
+#calculate the nestling period
 chicks <- round(rnorm(length(new_lat), B_vital[7, 1] + B_vital[7, 2]*new_lat, B_vital[7, 4]))
 
 #days until renesting after sucess or failure; values are rounded and constrained to be <= 34, which is the maximum observed wait period after failure
@@ -157,51 +159,54 @@ renest_days_success <- round(rnorm(length(new_lat), B_vital[1, 1] + B_vital[1, 2
 while(length(which(renest_days_success>34))>0){
 renest_days_success[renest_days_success>34] <- round(rnorm(length(which(renest_days_success>35)), B_vital[1, 1] + B_vital[1, 2]*new_lat, B_vital[1, 4]))
 }
-#predict renesting days after failure
 renest_days_fail <- rpois(length(new_lat), max(B_vital[2, 1] + B_vital[2, 2]*new_lat, 0))
 
-#max breeding season: April 15 through September 15, in days since Jan 1 (day 1) in a non-leap year
+#max breeding season: April 15th through September 15th, in days since Jan 1st (day 1) in a non-leap year
 julian <- seq(from=105, to=258)
 #make this a matrix with number of rows = popsize and columns = number of days in breeding season
 julian_matrix <- rep(julian, popsize)
 julian_matrix <- matrix(julian_matrix, ncol=length(julian), byrow=TRUE)
 
-#turn latitiude into a matrix that has 1 row for each individual, and its latitude value carried over a vector of length(julian)
+#turn latitiude into a matrix that has 1 row for each individual and its latitude value carried over a vector of length(julian)
 new_lat_matrix <- rep(new_lat, length(julian))
 new_lat_matrix <- matrix(new_lat_matrix, ncol=length(julian), byrow=FALSE)
 
 #probability of renesting has both systematic and stochastic variation by date, as well as individual-level variation (added after the regression equation)
+#renesting probability after a previous success
 renest_success <- (renest_prob_int + renest_prob_lat*new_lat_matrix + renest_prob_date*julian_matrix) + rnorm(popsize, 0, renest_prob_sd)
 renest_success <- 1 - exp(renest_success)/(1+exp(renest_success))
-
+#renesting probability after a previous failure
 renest_fail <- (renest_prob_int + renest_prob_lat*new_lat_matrix + renest_prob_date*julian_matrix) + rnorm(popsize, 0, renest_prob_sd)
 renest_fail <- 1 - exp(renest_fail)/(1+exp(renest_fail))
 
 #nest failure probabilities, which were previously drawn from MCMC
-nest_fail_logit <- nest_fail_int + nest_fail_date*julian_matrix + nest_sitevector[individs_bysite]
+nest_fail_logit <- nest_fail_int + nest_fail_date[individs_bysite]*julian_matrix + nest_sitevector[individs_bysite]
 fail_prob <- exp(nest_fail_logit)/(1+exp(nest_fail_logit))
 daily_surv <- (1 - fail_prob)
 
-#create a window for the "vulnerable period";  each individual has a unique value, which does not vary over the breeding season
+#create a window for the "vulnerable period"; each individual has a unique value, which does not vary over the breeding season
 window <- laying + incubation + chicks
 
-#in the loop below, days are defined as the diurnal period, so start date begins on the morning of the day that is being indexed (Jan 1 is day 1)
+#in the loop below, days are defined as the diurnal period: start date begins on the morning of the day that is being indexed (Jan 1st is day 1)
 #set back start date by nest building and waiting days (because start date is actually first egg date) and then add initiation time
 start_date <- start_date + initiation - nest_building - renest_days_fail
 #end date is the last day a female will initiate the nesting process
 end_date <- end_date - nest_building
-#if start date is less than minimum or more than maximum in julian, change to min or max
+#if start date is less than minimum or more than maximum in julian, change to min or max (very small chance of happening)
 start_date[start_date < 105] <- 105
 start_date[start_date > 258] <- 258
 end_date[end_date > 258] <- 258
 
-successes = mat.or.vec(popsize, 1)
-fledged = mat.or.vec(popsize, 1)
-phase = mat.or.vec(popsize, length(julian))
-first_egg = mat.or.vec(popsize, 1)
-first_egg_end = mat.or.vec(popsize, 1)
+#create a vector to fill witih the number of successful nests for each female (z)
+successes <- mat.or.vec(popsize, 1)
+#create a vector to fill with the number of fledged young for each female (z)
+fledged <- mat.or.vec(popsize, 1)
+#create a vector to fill with the first first egg date for each female
+first_egg <- mat.or.vec(popsize, 1)
+#create a vector to fill with the last first egg date for each female
+first_egg_end <- mat.or.vec(popsize, 1)
 for(z in 1:popsize){
-#"end_vector" indexes (1 or 0) the last day a female would start nest building, which can vary by individual
+#end vector indexes (1 or 0) the last day a female would start nest building, which can vary by individual
 #all nests end on max(julian)
 end_vector <- rep(1, max(julian_matrix))
 end_vector[end_date[z] + 1:length(end_vector)] <- 0
@@ -209,15 +214,15 @@ first_egg[z] <- which(start_date[z]==julian_matrix[z,])
 first_egg_end[z] <- which(end_date[z]==julian_matrix[z,])
 #t and f below will index the number of successful days up until the beginning of day i
 #start a scalar that will determine whether a bird is in the "invulnerable period" or has at least one egg
-t=0
+t<-0
 #start a scalar that keeps track of the number of days in a row without nest failure
-f=0
+f<-0
 #start a scalar that kicks out of the loop if a nest fails and the renesting draw is zero OR a nest fledges and the renesting draw is zero
-terminate = 0
+terminate <- 0
 #start a scalar that tracks how many successful nests there have been
-yay=0
+yay<-0
 #start a scalar that tracks number of young fledged
-fledges = 0
+fledges <- 0
 #only loop through days in the breeding season between the randomly drawn start and end dates
 	for(i in first_egg[z]:length(julian_matrix[1,])){
 		if(terminate == 0){
@@ -229,12 +234,12 @@ fledges = 0
 				alive <- rbinom(1, 1, daily_surv[z, i])
 				#if the nest survived day i, add 1 to f
 					if(alive == 1){
-					f = f + 1
+					f <- f + 1
 					}
 					#if the nest failed and the renest draw came up 1 (try again), reset the t and f scalars
 					if(alive == 0&(rbinom(1, 1, renest_fail[z,i])*(end_vector[i] + renest_days_fail[z]))==1){
-					t=0
-					f=0
+					t<-0
+					f<-0
 					}
 					#if the nest failed and the renest draw came up 0 (give up for the season), terminate scalar is one
 					if(alive == 0&(rbinom(1, 1, renest_fail[z,i])*(end_vector[i] + renest_days_fail[z]))==0){
@@ -246,13 +251,13 @@ fledges = 0
 					if(f==(window[z]-1)){
 					fledges <- fledges + max(laying[z] - rpois(1, lost_chicks[z]), 1)
 					yay <- yay + 1
-					t=0
-					f=0
+					t<-0
+					f<-0
 					terminate <- rbinom(1, 1, renest_success[z,i])*(end_vector[i] + renest_days_success[z])
 					}
 				}
 				if(t < (nest_building[z] + renest_days_success[z])){
-				t = t + 1
+				t <- t + 1
 				}
 			}
 			#if there has not been a successful nest, this loop will specify how long the invulnerable period is
@@ -263,12 +268,12 @@ fledges = 0
 				alive <- rbinom(1, 1, daily_surv[z, i])
 					#if the nest survived day i, add 1 to f
 					if(alive == 1){
-					f = f + 1
+					f <- f + 1
 					}
 					#if the nest failed and the renest draw came up 1 (try again), reset the t and f scalars
 					if(alive == 0&(rbinom(1, 1, renest_fail[z,i])*(end_vector[i] + renest_days_fail[z]))==1){
-					t=0
-					f=0
+					t<-0
+					f<-0
 					}
 					#if the nest failed and the renest draw came up 0 (give up for the season), terminate scalar is one
 					if(alive == 0&(rbinom(1, 1, renest_fail[z,i])*(end_vector[i] + renest_days_fail[z]))==0){
@@ -280,13 +285,13 @@ fledges = 0
 					if(f==(window[z]-1)){
 					fledges <- fledges + max(laying[z] - rpois(1, lost_chicks[z]), 1)
 					yay <- yay + 1
-					t=0
-					f=0
+					t<-0
+					f<-0
 					terminate <- rbinom(1, 1, renest_success[z,i])*(end_vector[i] + renest_days_success[z])
 					}
 				}
 				if(t < (nest_building[z] + renest_days_fail[z])){
-				t = t + 1
+				t <- t + 1
 				}
 			}
 		}
@@ -295,21 +300,21 @@ successes[z] <- yay
 fledged[z] <- fledges
 }
 
-#only a proportion will be females
+#only a proportion of fledges will be females
 fledged_F <- rbinom(length(fledged), fledged, sex_ratio)
 
-#export number of females fledged to calculate fecundity
+#create an object that stores the number of fledged females for exporting fecundity
 fledged_F_export <- fledged_F
 
-#survival until to the next breeding season
+#get the adults and chicks that survive to the next breeding season
 adult_survivors <- rbinom(popsize, 1, survival)
 chick_survivors <- rbinom(length(fledged_F), fledged_F, (survival*FY_surv_reduction))
 
-#get a vector of latitude just for surviving individuals, both adults and chicks
+#get a vector of latitude for just surviving individuals, both adults and chicks
 survivors_site_adults <- individs_bysite[adult_survivors==1]
 survivors_site_chicks_condensed <- individs_bysite[chick_survivors>0]
 
-#remove zeros from the vector of fledges
+#remove zeros from the vector that indexes which fledges survive
 fledged_F <- fledged_F[chick_survivors>0]
 
 #pre-allocate a vector to iteratively add expanded fledge info
@@ -324,15 +329,14 @@ survivors_site_chicks <- c(survivors_site_chicks, rep(survivors_site_chicks_cond
 #remove the pre-allocated zero
 survivors_site_chicks <- survivors_site_chicks[-1]
 
-#get individuals by site at time y to populate vector that will be used to export fecundity
+#store the "individs_bysite" during the current breeding season (before we turn it into the post-survival vector of the breeders for next year); this will be the denominator for estimating fecundity
 individs_bysite_old <- individs_bysite
-
 #combine adults and first years
 individs_bysite <- c(survivors_site_adults, survivors_site_chicks)
 
 #get new latitude for each individual
 new_lat <- SiteList$Lat_site[individs_bysite]
-#possible to add in annual variation in survival for the next year
+#add in annual variation in survival for the next year
 #survival_annual_var <- rnorm(1, 0, .311)
 survival_annual_var <- rnorm(1, 0, 0)
 #get backtransformed survival for each individual for the next year
@@ -344,24 +348,26 @@ end_date <- round(SiteList$Last_egg_date[individs_bysite])
 #calculate new cumulative population size
 popsize <- length(individs_bysite)
 
-#calculate population size by site
 for(i in 1:21){
+#calculate population of survivors size by site
 popsize_bysite_export[i] <- length(which(individs_bysite==sites[i]))
-#calculate number of females fledged then number of females at time y to calculate fecundity below
+#calculate the numbers of fledges by site
 chicks_bysite_export[i] <- sum(fledged_F_export[individs_bysite_old==sites[i]])
+#calculate the population of breeders (in this time step) by site
 popsize_old_bysite_export[i] <- length(which(individs_bysite_old==sites[i]))
 }
 
+#choose whether to export fecundity or population size
+popsize_matrix[ , y, e] <- popsize_bysite_export
+#popsize_matrix[ , y, e] <- chicks_bysite_export/popsize_old_bysite_export
 #if the population ever dips below 10 individuals, break the loop
 if(popsize < 10){
 break
 }
-
-#use the first line to export population size; second to export fecundity
-popsize_matrix[ , y, e] <- popsize_bysite_export
-#popsize_matrix[ , y, e] <- chicks_bysite_export/popsize_old_bysite_export
 }
 }
 popsize_matrix[ , , ]
 }
 stopCluster(cl)
+
+proc.time() - start_time
