@@ -17,8 +17,6 @@ setwd("")
 #load files
 VitalRates <- read.csv(file = "PVA_parameters.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
 SiteList <- read.csv(file = "site_list.csv", header=TRUE, sep=",", stringsAsFactors=FALSE)
-VitaRates[3, 5] <- 0
-
 
 #load libraries, detect and register cores, use the foreach command to do parallel computing for each iteration for parameter uncertainty
 library('parallel')
